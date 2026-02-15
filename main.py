@@ -67,22 +67,18 @@ def predict_diabetes(data: DiabetesInput):
 
 @app.post("/predict/heart")
 def predict_heart(data: HeartInput):
-    model = ml_models.get("heart_model")
-    scaler = ml_models.get("heart_scaler")
-    columns = ml_models.get("heart_columns")
-    
-    if not (model and scaler and columns) is not None: 
-         raise HTTPException(status_code=500, detail="Heart model components not loaded")
 
+    pipeline = ml_models.get("heart_pipeline")
+
+    
+    if not pipeline:
+        raise HTTPException(status_code = 500, detail = "Heart model pipeline not loaded")
+   
+  
     input_df = pd.DataFrame([data.model_dump()])
-    input_encoded = pd.get_dummies(input_df)
-    
-    input_encoded = input_encoded.reindex(columns=columns, fill_value=0)
-    numerical_cols = ['Age','RestingBP','Cholesterol','FastingBS','MaxHR','Oldpeak']
-    input_encoded[numerical_cols] = scaler.transform(input_encoded[numerical_cols])
 
-    prob = model.predict_proba(input_encoded)[0][1]
-    pred = model.predict(input_encoded)[0]
+    pred = pipeline.predict(input_df)[0]
+    prob = pipeline.predict_proba(input_df)[0][1]
 
     return {
         "prediction": int(pred),
@@ -94,19 +90,18 @@ def predict_heart(data: HeartInput):
 
 @app.post("/predict/parkinsons")
 def predict_parkinsons(data: ParkinsonInput):
-    model = ml_models.get("parkinsons_model")
-    scaler = ml_models.get("parkinsons_scaler")
+
+    pipeline = ml_models.get("parkinsons_pipeline")
+
+    if not pipeline:
+        raise HTTPException(status_code = 500, detail = "Parkinson's model pipeline not loaded")
     
-    if not (model and scaler):
-        raise HTTPException(status_code=500, detail="Parkinson's model components not loaded")
+    input_data = data.model_dump(by_alias = True)
+    input_df  = pd.DataFrame([input_data])
 
-    input_data = data.model_dump(by_alias=True)
-    input_df = pd.DataFrame([input_data])
-
-    input_scaled = scaler.transform(input_df)
-
-    prob = model.predict_proba(input_scaled)[0][1]
-    pred = model.predict(input_scaled)[0]
+    prob = pipeline.predict_proba(input_df)[0][1]
+    pred = pipeline.predict(input_df)[0]
+   
 
     return {
         "prediction": int(pred),
