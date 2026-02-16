@@ -12,7 +12,7 @@ def generate_health_report(disease_name: str, prediction: int, probability: floa
     Generates a personalized health report using GenAI.
     """
     try:
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-2.0-flash')
         
       
         risk_status = "HIGH RISK" if prediction == 1 else "Low Risk"

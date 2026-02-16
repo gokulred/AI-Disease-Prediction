@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+pandas
+scikit-learn
+mlflow
+shap
+google-generativeai
+python-dotenv
+streamlit
+requests

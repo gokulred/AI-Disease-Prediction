@@ -1,6 +1,6 @@
 import streamlit as st
 import requests
-import json
+import os
 
 st.set_page_config(
     page_title="MediPredict AI",
@@ -8,8 +8,10 @@ st.set_page_config(
     layout="wide"
 )
 
-API_URL = "http://127.0.0.1:8000"
+API_URL = os.getenv("API_URL","http://127.0.0.1:8000")
 
+if 'history' not in st.session_state:
+    st.session_state.history = []
 
 st.markdown("""
     <style>
@@ -43,30 +45,39 @@ st.markdown(" Advanced Multi-Disease Risk Analysis powered by GenAI")
 
 tab1, tab2, tab3 = st.tabs([" Diabetes", " Heart Disease", " Parkinson's"])
 
-def display_results(response):
-    if response.status_code == 200:
-        data = response.json()
+def handle_prediction(endpoint, payload, disease_name):
+    try:
         
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.subheader("Prediction Analysis")
-            risk_level = data['risk_level']
-            prob = data['probability']
+        with st.spinner("🤖 Analyzing vitals & generating AI report..."):
+            response = requests.post(f"{API_URL}/predict/{endpoint}", json=payload)
             
-            if risk_level == "High":
-                st.markdown(f"<div class='risk-high'>Risk Level: HIGH ({prob:.1%})</div>", unsafe_allow_html=True)
-            else:
-                st.markdown(f"<div class='risk-low'>Risk Level: LOW ({prob:.1%})</div>", unsafe_allow_html=True)
-                
-            st.metric(label="Probability Score", value=f"{prob:.3f}")
-        
-        with col2:
-            st.subheader(" AI Health Report")
-            st.info(data['ai_analysis'])
+        if response.status_code == 200:
+            data = response.json()
             
-    else:
-        st.error(f"Error: {response.text}")
+          
+            st.session_state.history.append({
+                "disease": disease_name,
+                "risk": data['risk_level'],
+                "date": "Just now"
+            })
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                st.subheader("Results")
+                if data['risk_level'] == "High":
+                    st.markdown(f"<div class='risk-high'>RISK: HIGH ({data['probability']:.1%})</div>", unsafe_allow_html=True)
+                else:
+                    st.markdown(f"<div class='risk-low'>RISK: LOW ({data['probability']:.1%})</div>", unsafe_allow_html=True)
+            
+            with col2:
+                st.subheader("AI Analysis")
+                st.info(data['ai_analysis'])
+                st.caption("⚠️ Disclaimer: This is an AI prediction. Consult a doctor.")
+        else:
+            st.error(f"Server Error: {response.text}")
+            
+    except requests.exceptions.ConnectionError:
+        st.error(" Could not connect to backend")
 
 # Diabetes
 with tab1:
@@ -91,12 +102,8 @@ with tab1:
             "SkinThickness": skin_thickness, "Insulin": insulin, "BMI": bmi,
             "DiabetesPedigreeFunction": dpf, "Age": age
         }
-        try:
-            res = requests.post(f"{API_URL}/predict/diabetes", json=payload)
-            display_results(res)
-        except requests.exceptions.ConnectionError:
-            st.error("Could not connect to backend")
-
+        handle_prediction("diabetes",payload,"Diabetes")
+        
 # HeartDisease
 with tab2:
     st.header("Heart Disease Risk Assessment")
@@ -123,11 +130,8 @@ with tab2:
             "Cholesterol": cholesterol, "FastingBS": fasting_bs, "RestingECG": resting_ecg,
             "MaxHR": max_hr, "ExerciseAngina": exercise_angina, "Oldpeak": oldpeak, "ST_Slope": st_slope
         }
-        try:
-            res = requests.post(f"{API_URL}/predict/heart", json=payload)
-            display_results(res)
-        except requests.exceptions.ConnectionError:
-            st.error("Could not connect to backend.")
+        handle_prediction("heart",payload,"Heart Disease")
+        
 
 # Parkinsons
 with tab3:
@@ -172,9 +176,6 @@ with tab3:
             "MDVP:APQ": mdvp_apq, "Shimmer:DDA": shim_dda, "NHR": nhr, "HNR": hnr,
             "RPDE": rpde, "DFA": dfa, "spread1": spread1, "spread2": spread2, "D2": d2, "PPE": ppe
         }
+        handle_prediction("parkinson's",payload,"Parkinson's")
         
-        try:
-            res = requests.post(f"{API_URL}/predict/parkinsons", json=payload)
-            display_results(res)
-        except requests.exceptions.ConnectionError:
-            st.error("Could not connect to backend.")
+       
